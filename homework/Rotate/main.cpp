@@ -26,55 +26,57 @@ public:
 class MainListener : public FrameListener {
   OIS::Keyboard *mKeyboard;
   Root* mRoot;
-  SceneNode *mProfessorNode, *mNinjaNode, *mFishNode;
+  SceneNode *mProfessorNode, *mFishManagerNode, *mFishNode;
 
 public:
   MainListener(Root* root, OIS::Keyboard *keyboard) : mKeyboard(keyboard), mRoot(root) 
   {
     mProfessorNode = mRoot->getSceneManager("main")->getSceneNode("Professor");
-    mNinjaNode = mRoot->getSceneManager("main")->getSceneNode("Ninja");
-	//mFishNode = mRoot->getSceneManager("main")->getSceneNode("Fish");
+    mFishNode = mRoot->getSceneManager("main")->getSceneNode("Ninja");
+	mFishManagerNode = mRoot->getSceneManager("main")->getSceneNode("manager");
   }
 
   bool frameStarted(const FrameEvent &evt)
   {
 	  // Fill Here ----------------------------------------------
-	  static SceneNode* curNode = mProfessorNode;
-	  static SceneNode* curNode2 = mNinjaNode;
+	  static SceneNode* professorNode = mProfessorNode;
+	  static SceneNode* fishNode = mFishNode;
+	  static SceneNode* fishManagerNode = mFishManagerNode;
 
-	  static int n = 0;
-	  static float degree = 0;
-	  static bool front = true;
-	  static int  direction = 1;
+	  const float professorVelocityZ = 250.f;
+	  const float fishAngularVelocity = -250.f;
+	  static int professorRotateDegree = 0;
+	  static bool professorTurning = true;
+	  static int professorDirectionZ = 1;
+	  float frameTime = evt.timeSinceLastFrame;
 
-	  curNode->translate(0, 0, direction);
-	  if (curNode->getPosition().z >= 250)
+	  professorNode->translate(0, 0, professorDirectionZ*frameTime*professorVelocityZ);
+	  if (professorNode->getPosition().z >= 250.f)
 	  {
-		  direction = 0;
-		  curNode->yaw(Degree(1.0f));
-		  n++;
-		  if (n == 180)
+		  professorNode->setPosition(Vector3(0, 0, 250.f));
+		  professorDirectionZ = 0;
+		  professorNode->yaw(Degree(1.0f));
+		  professorRotateDegree++;
+		  if (professorRotateDegree == 180)
 		  {
-			  direction = -1;
-			  n = 0;
+			  professorDirectionZ = -1;
+			  professorRotateDegree = 0;
 		  }
 	  }
-	  if (curNode->getPosition().z <= -250)
+	  if (professorNode->getPosition().z <= -250.f)
 	  {
-		  direction = 0;
-		  curNode->yaw(Degree(1.0f));
-		  n++;
-		  if (n == 180)
+		  professorNode->setPosition(Vector3(0, 0, -250.f));
+		  professorDirectionZ = 0;
+		  professorNode->yaw(Degree(1.0f));
+		  professorRotateDegree++;
+		  if (professorRotateDegree == 180)
 		  {
-			  direction = 1;
-			  n = 0;
+			  professorDirectionZ = 1;
+			  professorRotateDegree = 0;
 		  }
 	  }
-	 
-	  curNode2->setPosition(cosf(degree*(3.14 / 180)) * 100, 0, (sinf(degree*(3.14 / 180)) * 100));
-	  degree+=1.0f;
-
-
+	  fishManagerNode->setInheritOrientation(false);
+	  fishManagerNode->yaw(Degree(fishAngularVelocity*frameTime));
     // --------------------------------------------------------
 
     return true;
@@ -163,15 +165,14 @@ public:
     SceneNode* node1 = mSceneMgr->getRootSceneNode()->createChildSceneNode("Professor", Vector3(0.0f, 0.0f, 0.0f));
     node1->attachObject(entity1);
 
+	SceneNode *managerNode = node1->createChildSceneNode("manager", Vector3(0, 0, 0));
+
     Entity* entity2 = mSceneMgr->createEntity("Ninja", "fish.mesh");
-    SceneNode* node2 = node1->createChildSceneNode("Ninja", Vector3(0.0f, 0.0f, 0.0f));
+    SceneNode* node2 = managerNode->createChildSceneNode("Ninja", Vector3(100.0f, 0.0f, 0.0f));
 	node2->scale(Vector3(10, 10, 10));
     node2->attachObject(entity2);
-	
+	node2->yaw(Degree(60.f));
 
-	/*Entity* entity3 = mSceneMgr->createEntity("Fish", "fish.mesh");
-	SceneNode* node3 = node1->createChildSceneNode("Ninja", Vector3(100.0f, 0.0f, 0.0f));
-	node3->attachObject(entity3);*/
 
     mESCListener =new ESCListener(mKeyboard);
     mRoot->addFrameListener(mESCListener);
