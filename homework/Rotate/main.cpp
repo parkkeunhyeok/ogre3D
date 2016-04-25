@@ -5,10 +5,11 @@
 
 #include <Ogre.h>
 #include <OIS/OIS.h>
+#include <iostream>
 #include <math.h>
 
 using namespace Ogre;
-
+using namespace std;
 
 class ESCListener : public FrameListener {
 	OIS::Keyboard *mKeyboard;
@@ -39,44 +40,43 @@ public:
   bool frameStarted(const FrameEvent &evt)
   {
 	  // Fill Here ----------------------------------------------
-	  static SceneNode* professorNode = mProfessorNode;
-	  static SceneNode* fishNode = mFishNode;
-	  static SceneNode* fishManagerNode = mFishManagerNode;
-
-	  const float professorVelocityZ = 250.f;
-	  const float fishAngularVelocity = -250.f;
-	  static int professorRotateDegree = 0;
-	  static bool professorTurning = true;
+	  const float professorSpeedZ = 250.f;
+	  const float fishAngularVelocity = -180.f;
+	  const float professorRotateSpeed = 180.f;
+	  static float professorRotationTime = 0;
+	  static bool professorTurning = false;
 	  static int professorDirectionZ = 1;
-	  float frameTime = evt.timeSinceLastFrame;
+	  
+	  if (professorTurning == true)
+	  {
+		  mProfessorNode->yaw(Degree(professorRotateSpeed)*evt.timeSinceLastFrame);
+		  professorRotationTime += evt.timeSinceLastFrame;
+		  
+		  if (professorRotationTime >= 1.0f)
+		  {
+			  professorDirectionZ *= -1;
+			  professorRotationTime = 0;
+			  professorTurning = false;
+		  }
+	  }
+	  else // professorTurning == false
+	  {
+		  mProfessorNode->translate(0, 0, professorDirectionZ*evt.timeSinceLastFrame*professorSpeedZ);
+		  if (mProfessorNode->getPosition().z >= 250.f)
+		  {
+			  professorTurning = true;
+			  mProfessorNode->setPosition(Vector3(0, 0, 250.f));
+			 
+		  }
+		  if (mProfessorNode->getPosition().z <= -250.f)
+		  {
+			  professorTurning = true;
+			  mProfessorNode->setPosition(Vector3(0, 0, -250.f));
 
-	  professorNode->translate(0, 0, professorDirectionZ*frameTime*professorVelocityZ);
-	  if (professorNode->getPosition().z >= 250.f)
-	  {
-		  professorNode->setPosition(Vector3(0, 0, 250.f));
-		  professorDirectionZ = 0;
-		  professorNode->yaw(Degree(1.0f));
-		  professorRotateDegree++;
-		  if (professorRotateDegree == 180)
-		  {
-			  professorDirectionZ = -1;
-			  professorRotateDegree = 0;
 		  }
 	  }
-	  if (professorNode->getPosition().z <= -250.f)
-	  {
-		  professorNode->setPosition(Vector3(0, 0, -250.f));
-		  professorDirectionZ = 0;
-		  professorNode->yaw(Degree(1.0f));
-		  professorRotateDegree++;
-		  if (professorRotateDegree == 180)
-		  {
-			  professorDirectionZ = 1;
-			  professorRotateDegree = 0;
-		  }
-	  }
-	  fishManagerNode->setInheritOrientation(false);
-	  fishManagerNode->yaw(Degree(fishAngularVelocity*frameTime));
+	  mFishManagerNode->setInheritOrientation(false);
+	  mFishManagerNode->yaw(Degree(fishAngularVelocity)*evt.timeSinceLastFrame);
     // --------------------------------------------------------
 
     return true;
@@ -217,7 +217,6 @@ private:
     gridPlaneNode->attachObject(gridPlane);
   }
 };
-
 
 #ifdef __cplusplus
 extern "C" {
