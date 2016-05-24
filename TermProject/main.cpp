@@ -1,4 +1,4 @@
-#define CLIENT_DESCRIPTION "Quaternion"
+#define CLIENT_DESCRIPTION "Character Controller"
 
 #if OGRE_PLATFORM == OGRE_PLATFORM_WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -19,10 +19,28 @@ class InputController : public FrameListener,
 public:
   InputController(Root* root, OIS::Keyboard *keyboard, OIS::Mouse *mouse) : mRoot(root), mKeyboard(keyboard), mMouse(mouse)
   {
-    mProfessorNode = mRoot->getSceneManager("main")->getSceneNode("Professor");
-    mCamera = mRoot->getSceneManager("main")->getCamera("main");
+    mIdleState = root->getSceneManager("main")->getEntity("Professor")->getAnimationState("Idle");
+    mWalkState = root->getSceneManager("main")->getEntity("Professor")->getAnimationState("Walk");
+
+    mIdleState->setLoop(true);
+    mWalkState->setLoop(true);
+
+    mIdleState->setEnabled(true);
+    mWalkState->setEnabled(false);
+
+    mCharacterRoot = mRoot->getSceneManager("main")->getSceneNode("ProfessorRoot");
+    mCharacterYaw = mRoot->getSceneManager("main")->getSceneNode("ProfessorYaw");
+    mCharacterDirection = Ogre::Vector3::ZERO;
+
+    mCameraYaw = mRoot->getSceneManager("main")->getSceneNode("CameraYaw");
+    mCameraPitch = mRoot->getSceneManager("main")->getSceneNode("CameraPitch");
+    mCameraHolder = mRoot->getSceneManager("main")->getSceneNode("CameraHolder");
+
 
     mContinue = true;
+
+    mRotating = false;
+    mRotatingTime = 0.0f;
 
     keyboard->setEventCallback(this);
     mouse->setEventCallback(this);
@@ -31,24 +49,71 @@ public:
 
   bool frameStarted(const FrameEvent &evt)
   {
+
+
     mKeyboard->capture();
     mMouse->capture();
+
+	mCharacterDirection.z -= 30*evt.timeSinceLastFrame;
+
+    // Fill Here -------------------------------------------------------------------
+	if (mCharacterDirection != Vector3::ZERO)
+	{
+		mCharacterRoot->setOrientation(mCameraYaw->getOrientation());
+		Quaternion quat = Vector3(Vector3::UNIT_Z).getRotationTo(mCharacterDirection);
+		mCharacterYaw->setOrientation(quat);
+		mCharacterRoot->translate(mCharacterDirection.normalisedCopy() * 111 * evt.timeSinceLastFrame, Node::TransformSpace::TS_LOCAL);
+
+		if (!mWalkState->getEnabled())
+		{
+			mWalkState->setEnabled(true);
+			mIdleState->setEnabled(false);
+		}
+		mWalkState->addTime(evt.timeSinceLastFrame);
+	}
+	else
+	{
+		if (!mIdleState->getEnabled())
+		{
+			mIdleState->setEnabled(true);
+			mWalkState->setEnabled(false);
+		}
+		mIdleState->addTime(evt.timeSinceLastFrame);
+	}
+
+    // -----------------------------------------------------------------------------
+
     return mContinue;
   }
 
   // Key Linstener Interface Implementation
 
-  bool keyPressed( const OIS::KeyEvent &evt )
+  bool keyPressed(const OIS::KeyEvent &evt)
   {
     // Fill Here -----------------------------------------------
-
+	  switch (evt.key)
+	  {
+	  case OIS::KC_A: case OIS::KC_LEFT: mCharacterDirection.x += -20.0f; break;
+	  case OIS::KC_D: case OIS::KC_RIGHT: mCharacterDirection.x += 20.0f; break;
+	  case OIS::KC_ESCAPE: mContinue = false; break;
+	  }
+	  return true;
     // ---------------------------------------------------------
-
   }
 
   bool keyReleased( const OIS::KeyEvent &evt )
   {
-    return true;
+    // Fill Here -----------------------------------------------
+	  switch (evt.key)
+	  {
+	  case OIS::KC_A: case OIS::KC_LEFT: mCharacterDirection.x -= -20.0f; break;
+	  case OIS::KC_D: case OIS::KC_RIGHT: mCharacterDirection.x -= 20.0f; break;
+	  case OIS::KC_ESCAPE: mContinue = false; break;
+	  }
+	  return true;
+
+    // ---------------------------------------------------------
+
   }
 
 
@@ -56,14 +121,10 @@ public:
 
   bool mouseMoved( const OIS::MouseEvent &evt )
   {
+    mCameraYaw->yaw(Degree(-evt.state.X.rel));
+    mCameraPitch->pitch(Degree(-evt.state.Y.rel));
 
-    if (evt.state.buttonDown(OIS::MB_Right)) 
-    {
-      mCamera->yaw(Degree(-evt.state.X.rel));
-      mCamera->pitch(Degree(-evt.state.Y.rel));
-    }
-
-    mCamera->moveRelative(Ogre::Vector3(0, 0, -evt.state.Z.rel * 0.1f));
+    mCameraHolder->translate(Ogre::Vector3(0, 0, -evt.state.Z.rel * 0.1f));
 
     return true;
   }
@@ -84,22 +145,34 @@ private:
   Ogre::Root* mRoot;
   OIS::Keyboard* mKeyboard;
   OIS::Mouse* mMouse;
-  Camera* mCamera;
-  SceneNode* mProfessorNode;
+
+
+  Ogre::AnimationState* mWalkState;
+  Ogre::AnimationState* mIdleState;
+
+  SceneNode* mCharacterRoot;
+  SceneNode* mCharacterYaw;
+
+  SceneNode* mCameraHolder;
+  SceneNode* mCameraYaw;
+  SceneNode* mCameraPitch;
+
+  Ogre::Vector3 mCharacterDirection;
+
+  bool mRotating;  
+  Quaternion mSrcQuat, mDestQuat;  
+  float mRotatingTime;
 };
+
+
+
+
+
 
 
 class LectureApp {
 
-  Root* mRoot;
-  RenderWindow* mWindow;
-  SceneManager* mSceneMgr;
-  Camera* mCamera;
-  Viewport* mViewport;
-  OIS::Keyboard* mKeyboard;
-  OIS::Mouse* mMouse;
 
-  OIS::InputManager *mInputManager;
 
 
 
@@ -124,18 +197,15 @@ public:
       if (!mRoot->showConfigDialog()) return;
     }
 
-    mWindow = mRoot->initialise(true, CLIENT_DESCRIPTION " : Copyleft by Dae-Hyun Lee 2010");
+    mWindow = mRoot->initialise(true, CLIENT_DESCRIPTION " : Copyleft by Dae-Hyun Lee");
 
     mSceneMgr = mRoot->createSceneManager(ST_GENERIC, "main");
     mCamera = mSceneMgr->createCamera("main");
 
-
-    mCamera->setPosition(0.0f, 200.0f, 500.0f);
-    mCamera->lookAt(0.0f, 50.0f, 0.0f);
-
     mViewport = mWindow->addViewport(mCamera);
     mViewport->setBackgroundColour(ColourValue(0.0f,0.0f,0.5f));
     mCamera->setAspectRatio(Real(mViewport->getActualWidth()) / Real(mViewport->getActualHeight()));
+
 
     ResourceGroupManager::getSingleton().addResourceLocation("resource.zip", "Zip");
     ResourceGroupManager::getSingleton().initialiseAllResourceGroups();
@@ -149,11 +219,20 @@ public:
 
     _drawGridPlane();
 
+    // Fill Here -----------------------------------------------
+	SceneNode* professorRoot = mSceneMgr->getRootSceneNode()->createChildSceneNode("ProfessorRoot"); SceneNode* professorYaw = professorRoot->createChildSceneNode("ProfessorYaw");
+	SceneNode* cameraYaw = professorRoot->createChildSceneNode("CameraYaw", Vector3(0.0f, 120.0f, 0.0f));
+	SceneNode* cameraPitch = cameraYaw->createChildSceneNode("CameraPitch");
+	SceneNode* cameraHolder = cameraPitch->createChildSceneNode("CameraHolder", Vector3(0.0f, 80.0f, 500.0f));
+	cameraYaw->setInheritOrientation(false);
 
-    Entity* entity1 = mSceneMgr->createEntity("Professor", "DustinBody.mesh");
-    SceneNode* node1 = mSceneMgr->getRootSceneNode()->createChildSceneNode("Professor", Vector3(0.0f, 0.0f, 0.0f));
-    node1->attachObject(entity1);
+    // ---------------------------------------------------------
 
+    Entity* entity = mSceneMgr->createEntity("Professor", "DustinBody.mesh");
+    professorYaw->attachObject(entity);
+
+    cameraHolder->attachObject(mCamera);
+    mCamera->lookAt(cameraYaw->getPosition());
 
     size_t windowHnd = 0;
     std::ostringstream windowHndStr;
@@ -166,7 +245,6 @@ public:
     pl.insert(std::make_pair(std::string("w32_keyboard"), std::string("DISCL_FOREGROUND")));
     pl.insert(std::make_pair(std::string("w32_keyboard"), std::string("DISCL_NONEXCLUSIVE")));
     mInputManager = OIS::InputManager::createInputSystem(pl);
-
 
     mKeyboard = static_cast<OIS::Keyboard*>(mInputManager->createInputObject(OIS::OISKeyboard, true));
     mMouse = static_cast<OIS::Mouse*>( mInputManager->createInputObject(OIS::OISMouse, true));
@@ -199,19 +277,30 @@ private:
     gridPlaneMaterial->getTechnique(0)->getPass(0)->setSelfIllumination(1,1,1); 
 
     gridPlane->begin("GridPlaneMaterial", Ogre::RenderOperation::OT_LINE_LIST); 
-    for(int i=0; i<21; i++)
-    {
-      gridPlane->position(-500.0f, 0.0f, 500.0f-i*50);
-      gridPlane->position(500.0f, 0.0f, 500.0f-i*50);
+	for (int i = 0; i<81; i++)
+	{
+		gridPlane->position(-2000.0f, 0.0f, 2000.0f - i * 50);
+		gridPlane->position(2000.0f, 0.0f, 2000.0f - i * 50);
 
-      gridPlane->position(-500.f+i*50, 0.f, 500.0f);
-      gridPlane->position(-500.f+i*50, 0.f, -500.f);
-    }
+		gridPlane->position(-2000.f + i * 50, 0.f, 2000.0f);
+		gridPlane->position(-2000.f + i * 50, 0.f, -2000.f);
+	}
 
     gridPlane->end(); 
 
     gridPlaneNode->attachObject(gridPlane);
   }
+
+
+  Root* mRoot;
+  RenderWindow* mWindow;
+  SceneManager* mSceneMgr;
+  Camera* mCamera;
+  Viewport* mViewport;
+  OIS::Keyboard* mKeyboard;
+  OIS::Mouse* mMouse;
+
+  OIS::InputManager *mInputManager;
 };
 
 
