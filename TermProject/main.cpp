@@ -12,6 +12,7 @@
 #include "PlayState.h"
 
 
+
 using namespace Ogre;
 
 #ifdef __cplusplus
@@ -29,6 +30,7 @@ extern "C" {
 		try
 		{
 			game.init();
+
 			game.changeState(TitleState::getInstance());
 			game.go();
 		}
