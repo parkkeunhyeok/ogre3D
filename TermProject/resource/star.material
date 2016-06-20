@@ -1,0 +1,28 @@
+material _starcolor1_OgreMax
+{
+	technique Map#1
+	{
+		pass Map#2
+		{
+			ambient 0.2 0.2 0.2 1
+			diffuse 0.66 -0.26 -0.91 1
+		}
+
+	}
+
+}
+
+
+material _starcolor2_OgreMax
+{
+	technique Map#3
+	{
+		pass Map#4
+		{
+			ambient 0.2 0.2 0.2 1
+			diffuse 0.8 0.62 -1 1
+		}
+
+	}
+
+}
