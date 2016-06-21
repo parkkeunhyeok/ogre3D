@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GameManager.h"
+#define LIFE_NUM 30
 enum State
 {
 	IDLE, LEFT, RIGHT
@@ -16,7 +17,8 @@ public:
 	virtual void enter(void) = 0;
 	virtual void exit(void) = 0;
 	Ogre::Vector3 mCharacterDirection;
-	Ogre::Vector3 mObjectDirection;
+	Ogre::Vector3 mObjectDirection[LIFE_NUM];
+	Ogre::Vector3 mGroundDirection;
 	State state;
 	State2 state2;
 	virtual void pause(void) = 0;

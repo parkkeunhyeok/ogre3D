@@ -16,6 +16,7 @@ public:
 	void resume(void);
 
 	bool colidelife(const AABB&);
+	void collidelifewall();
 
 	bool frameStarted(GameManager* game, const Ogre::FrameEvent& evt);
 	bool frameEnded(GameManager* game, const Ogre::FrameEvent& evt);
@@ -35,10 +36,11 @@ private:
 	void _setLights(void);
 	void _drawGroundPlane(void);
 	void _drawGridPlane(void);
-	float mObjectSpeed;
+	Ogre::Vector3 mObjectSpeed;
 
 	static PlayState mPlayState;
 	Ogre::Vector3 mCharacterSpeed;
+	
 	Ogre::Root *mRoot;
 	Ogre::RenderWindow* mWindow;
 	Ogre::SceneManager* mSceneMgr;

@@ -7,19 +7,21 @@ using namespace std;
 PlayState PlayState::mPlayState;
 
 
+
 void PlayState::enter(void)
 {
-	mCharacterSpeed = { 200, 200, 200 };
-	mObjectSpeed = 200;
+	mCharacterSpeed = { 300, 300, 200 };
+	mGroundDirection = { 0, 0, 1 };
+	mObjectSpeed = { 400, 400, 800 };
+	
 	srand(time(0));
 	mRoot = Root::getSingletonPtr();
 	mRoot->getAutoCreatedWindow()->resetStatistics();
-	mObjectDirection = -1;
+	
 	mSceneMgr = mRoot->getSceneManager("main");
 	mCamera = mSceneMgr->getCamera("main");
 	mCamera->setPosition(Ogre::Vector3::ZERO);
-
-	//_drawGridPlane();
+	
 	_setLights();
 	mSceneMgr->setSkyBox(true, "Sky/PlaySkyBox", 5000);
 	_drawGroundPlane();
@@ -47,19 +49,22 @@ void PlayState::enter(void)
 
 	mCharacterYaw->yaw(Degree(180.f));
 	mCharacterDirection = Vector3(0, 0, 0);
-	mObjectDirection = Vector3(0, 0, 1);
+	
 	char c = 'A';
 	string s = "Life";
 	for (int i = 0; i < LIFE_NUM; ++i)
 	{
-		Vector3 v(rand() % 951 - 450, rand() % 501, -1000.f);
+		int a = rand() % 21-10;
+		int b = rand() % 21-10;
+		mObjectDirection[i] = Vector3(a*0.1 , b*0.1, 1);
+		Vector3 v(rand() % 900 - 450, 100, -1000.f);
 		mLifeRoot[i] = mSceneMgr->getRootSceneNode()->createChildSceneNode(s + c, v);
 		mLifeEntity = mSceneMgr->createEntity(s + c, "outline.mesh");
 		mLifeEntity->setCastShadows(false);
 
 		mLifeRoot[i]->attachObject(mLifeEntity);
+		mLifeRoot[i]->translate(Vector3(0, 0, -(i * 300)));
 		mLifeRoot[i]->setScale(Vector3(100, 100, 100));
-
 		lifebox[i].left = v.x - 30;
 		lifebox[i].right = v.x + 30;
 		lifebox[i].top = v.y + 40;
@@ -67,8 +72,37 @@ void PlayState::enter(void)
 		lifebox[i].front = v.z + 10;
 		lifebox[i].back = v.z - 10;
 		c++;
+		cout << mLifeRoot[i]->getPosition().y << endl;
 	}
 
+}
+
+void PlayState::collidelifewall()
+{
+	for (int i = 0; i < LIFE_NUM; ++i)
+	{
+
+		if (mLifeRoot[i]->getPosition().x < -500)
+		{
+			mLifeRoot[i]->setPosition(-500, mLifeRoot[i]->getPosition().y, mLifeRoot[i]->getPosition().z);
+			mObjectDirection[i] = mObjectDirection[i].reflect(Vector3(1, 0, 0));
+		}
+		if (mLifeRoot[i]->getPosition().x > 500)
+		{
+			mLifeRoot[i]->setPosition(500, mLifeRoot[i]->getPosition().y, mLifeRoot[i]->getPosition().z);
+			mObjectDirection[i] = mObjectDirection[i].reflect(Vector3(-1, 0, 0));
+		}
+		if (mLifeRoot[i]->getPosition().y < -50)
+		{
+			mLifeRoot[i]->setPosition(mLifeRoot[i]->getPosition().x, -50, mLifeRoot[i]->getPosition().z);
+			mObjectDirection[i] = mObjectDirection[i].reflect(Vector3(0, -1, 0));
+		}
+		if (mLifeRoot[i]->getPosition().y > 500)
+		{
+			mLifeRoot[i]->setPosition(mLifeRoot[i]->getPosition().x, 500, mLifeRoot[i]->getPosition().z);
+			mObjectDirection[i] = mObjectDirection[i].reflect(Vector3(0, -1, 0));
+		}
+	}
 }
 
 void PlayState::exit(void)
@@ -94,22 +128,24 @@ void PlayState::resume(void)
 bool PlayState::frameStarted(GameManager* game, const FrameEvent& evt)
 {
 
+	collidelifewall();
 	if (mCharacterDirection != Vector3::ZERO)
 		mCharacterRoot->translate(mCharacterDirection.normalisedCopy() * mCharacterSpeed * evt.timeSinceLastFrame, Node::TransformSpace::TS_LOCAL);
 
-	if (mObjectDirection != Vector3::ZERO)
-	{
+	
 		for (int i = 0; i < LIFE_NUM; ++i)
 		{
-			mLifeRoot[i]->translate(mObjectDirection.normalisedCopy() * mObjectSpeed * evt.timeSinceLastFrame, Node::TransformSpace::TS_LOCAL);
+			if (mObjectDirection[i] != Vector3::ZERO)
+				mLifeRoot[i]->translate(mObjectDirection[i].normalisedCopy() * mObjectSpeed * evt.timeSinceLastFrame, Node::TransformSpace::TS_LOCAL);
 		}
 		for (int i = 0; i < 2; ++i)
 		{
-			mGroundRoot[i]->translate(mObjectDirection.normalisedCopy() *mObjectSpeed* evt.timeSinceLastFrame, Node::TransformSpace::TS_LOCAL);
+			if (mGroundDirection != Vector3::ZERO)
+			mGroundRoot[i]->translate(mGroundDirection.normalisedCopy() *mObjectSpeed* evt.timeSinceLastFrame, Node::TransformSpace::TS_LOCAL);
 			if (mGroundRoot[i]->getPosition().z >= 10000)
 				mGroundRoot[i]->setPosition(Vector3(0, 0, -9999));
 		}
-	}
+	
 
 	switch (state)
 	{
@@ -210,7 +246,7 @@ bool PlayState::keyReleased(GameManager* game, const OIS::KeyEvent &e)
 			state2 = IDLE2;
 		break;
 	case OIS::KC_O:
-		mObjectDirection.z = 1;
+		//mObjectDirection.z = 1;
 		break;
 	}
 	return true;
@@ -237,7 +273,7 @@ bool PlayState::keyPressed(GameManager* game, const OIS::KeyEvent &e)
 		state2 = DOWN;
 		break;
 	case OIS::KC_O:
-		mObjectDirection.z = -1;
+		//mObjectDirection.z = -1;
 		break;
 	}
 	// -----------------------------------------------------
@@ -319,38 +355,6 @@ void PlayState::_drawGroundPlane(void)
 
 	mGroundRoot[1]->attachObject(groundEntity2);
 
-}
-
-void PlayState::_drawGridPlane(void)
-{
-	// ÁÂÇ¥Ãà Ç¥½Ã
-	Ogre::Entity* mAxesEntity = mSceneMgr->createEntity("Axes", "axes.mesh");
-	mSceneMgr->getRootSceneNode()->createChildSceneNode("AxesNode", Ogre::Vector3(0, 0, 0))->attachObject(mAxesEntity);
-	mSceneMgr->getSceneNode("AxesNode")->setScale(5, 5, 5);
-
-	Ogre::ManualObject* gridPlane = mSceneMgr->createManualObject("GridPlane");
-	Ogre::SceneNode* gridPlaneNode = mSceneMgr->getRootSceneNode()->createChildSceneNode("GridPlaneNode");
-
-	Ogre::MaterialPtr gridPlaneMaterial = Ogre::MaterialManager::getSingleton().create("GridPlanMaterial", "General");
-	gridPlaneMaterial->setReceiveShadows(false);
-	gridPlaneMaterial->getTechnique(0)->setLightingEnabled(true);
-	gridPlaneMaterial->getTechnique(0)->getPass(0)->setDiffuse(1, 1, 1, 0);
-	gridPlaneMaterial->getTechnique(0)->getPass(0)->setAmbient(1, 1, 1);
-	gridPlaneMaterial->getTechnique(0)->getPass(0)->setSelfIllumination(1, 1, 1);
-
-	gridPlane->begin("GridPlaneMaterial", Ogre::RenderOperation::OT_LINE_LIST);
-	for (int i = 0; i < 21; i++)
-	{
-		gridPlane->position(-500.0f, 0.0f, 500.0f - i * 50);
-		gridPlane->position(500.0f, 0.0f, 500.0f - i * 50);
-
-		gridPlane->position(-500.f + i * 50, 0.f, 500.0f);
-		gridPlane->position(-500.f + i * 50, 0.f, -500.f);
-	}
-
-	gridPlane->end();
-
-	gridPlaneNode->attachObject(gridPlane);
 }
 
 bool PlayState::colidelife(const AABB& box)
