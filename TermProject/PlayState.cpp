@@ -49,15 +49,22 @@ void PlayState::enter(void)
 	mCharacterDirection = Vector3(0,0,-1);
 	char c = 'A';
 	string s = "Rock";
-	for (int i = 0; i < 40; ++i)
+	for (int i = 0; i < 1; ++i)
 	{
-		
-		mRockRoot[i] = mSceneMgr->getRootSceneNode()->createChildSceneNode(s + c, Vector3(rand() % 1001 - 1000, rand() % 1001 - 1000, -500.f));
-
+		Vector3 v(rand() % 951 - 450, rand() % 501, -1000.f);
+		mRockRoot[i] = mSceneMgr->getRootSceneNode()->createChildSceneNode(s + c, v);
 		mRockEntity = mSceneMgr->createEntity(s+c, "outline.mesh");
 		mRockEntity->setCastShadows(false);
+
 		mRockRoot[i]->attachObject(mRockEntity);
 		mRockRoot[i]->setScale(Vector3(100, 100, 100));
+
+		lifebox[i].left = v.x - 30;
+		lifebox[i].right = v.x + 30;
+		lifebox[i].top = v.y + 40;
+		lifebox[i].bottom = v.y;
+		lifebox[i].front = v.z + 10;
+		lifebox[i].back = v.z - 10;
 		c++;
 	}
 	
@@ -85,9 +92,12 @@ void PlayState::resume(void)
 
 bool PlayState::frameStarted(GameManager* game, const FrameEvent& evt)
 {
+	static int i = 0;
 	if (mCharacterDirection!=Vector3::ZERO)
 		mCharacterRoot->translate(mCharacterDirection.normalisedCopy() * 111 * evt.timeSinceLastFrame, Node::TransformSpace::TS_LOCAL);
-
+	if (colidelife())
+		cout << i++<< " collision" << endl;
+	
 	switch (state)
 	{
 	case RIGHT:
@@ -113,8 +123,13 @@ bool PlayState::frameStarted(GameManager* game, const FrameEvent& evt)
 		mCharacterDirection.y = 0;
 		break;
 	}
-
 	mAnimationState->addTime(evt.timeSinceLastFrame);
+	playerbox.right = mCharacterRoot->getPosition().x + 30;
+	playerbox.left = mCharacterRoot->getPosition().x - 30;
+	playerbox.top = mCharacterRoot->getPosition().y + 150;
+	playerbox.bottom = mCharacterRoot->getPosition().y;
+	playerbox.front = mCharacterRoot->getPosition().z + 10;
+	playerbox.back = mCharacterRoot->getPosition().z - 10;
 
 	return true;
 }
@@ -162,6 +177,9 @@ bool PlayState::keyReleased(GameManager* game, const OIS::KeyEvent &e)
 		if (state2 == DOWN)
 			state2 = IDLE2;
 		break;
+	case OIS::KC_O:
+		mCharacterDirection.z -= 10;
+		break;
 	}
 	return true;
 }
@@ -185,6 +203,9 @@ bool PlayState::keyPressed(GameManager* game, const OIS::KeyEvent &e)
 		break;
 	case OIS::KC_S:
 		state2 = DOWN;
+		break;
+	case OIS::KC_O:
+		mCharacterDirection.z+= 10;
 		break;
 	}
 	// -----------------------------------------------------
@@ -275,4 +296,24 @@ void PlayState::_drawGridPlane(void)
 	gridPlane->end();
 
 	gridPlaneNode->attachObject(gridPlane);
+}
+
+bool PlayState::colidelife()
+{
+	for (int i = 0; i < 1; ++i)
+	{
+		if (lifebox[i].left > playerbox.right)
+			return false;
+		if (lifebox[i].right < playerbox.left)
+			return false;
+		if (lifebox[i].top < playerbox.bottom)
+			return false;
+		if (lifebox[i].bottom > playerbox.top)
+			return false;
+		if (lifebox[i].front < playerbox.back)
+			return false;
+		if (lifebox[i].back > playerbox.front)
+			return false;
+		return true;
+	}
 }

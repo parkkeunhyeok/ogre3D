@@ -6,11 +6,14 @@
 #endif
 
 
+#ifdef _DEBUG
 
+#pragma comment(linker, "/entry:WinMainCRTStartup /subsystem:console")
+
+#endif
 #include "GameManager.h"
 #include "TitleState.h"
 #include "PlayState.h"
-
 
 
 using namespace Ogre;
@@ -28,7 +31,7 @@ extern "C" {
 		// Fill Here ---------------------------------------------------
 		GameManager game;
 		try
-		{
+		{	
 			game.init();
 
 			game.changeState(TitleState::getInstance());

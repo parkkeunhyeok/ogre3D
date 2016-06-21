@@ -1,7 +1,10 @@
 #pragma once
 
 #include "GameState.h"
-
+struct AABB
+{
+	float left, right, top, bottom, back, front;
+};
 class PlayState : public GameState
 {
 public:
@@ -10,6 +13,8 @@ public:
 
 	void pause(void);
 	void resume(void);
+
+	bool colidelife();
 
 	bool frameStarted(GameManager* game, const Ogre::FrameEvent& evt);
 	bool frameEnded(GameManager* game, const Ogre::FrameEvent& evt);
@@ -20,9 +25,10 @@ public:
 
 	bool keyPressed(GameManager* game, const OIS::KeyEvent &e);
 	bool keyReleased(GameManager* game, const OIS::KeyEvent &e);
-
+	
 	static PlayState* getInstance() { return &mPlayState; }
-
+	AABB lifebox[40];
+	AABB playerbox;
 private:
 
 	void _setLights(void);
@@ -45,7 +51,6 @@ private:
 	Ogre::SceneNode* mCameraHolder;
 	Ogre::SceneNode* mCameraYaw;
 	Ogre::SceneNode* mCameraPitch;
-
 	Ogre::Entity* mCharacterEntity;
 	Ogre::Entity* mRockEntity;
 	Ogre::AnimationState* mAnimationState;
