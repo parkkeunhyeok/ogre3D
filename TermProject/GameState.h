@@ -16,6 +16,7 @@ public:
 	virtual void enter(void) = 0;
 	virtual void exit(void) = 0;
 	Ogre::Vector3 mCharacterDirection;
+	Ogre::Vector3 mObjectDirection;
 	State state;
 	State2 state2;
 	virtual void pause(void) = 0;

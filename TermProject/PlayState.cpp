@@ -7,19 +7,19 @@ using namespace std;
 PlayState PlayState::mPlayState;
 
 
-
-
 void PlayState::enter(void)
 {
+	mCharacterSpeed = { 200, 200, 200 };
+	mObjectSpeed = 200;
 	srand(time(0));
 	mRoot = Root::getSingletonPtr();
 	mRoot->getAutoCreatedWindow()->resetStatistics();
-
+	mObjectDirection = -1;
 	mSceneMgr = mRoot->getSceneManager("main");
 	mCamera = mSceneMgr->getCamera("main");
 	mCamera->setPosition(Ogre::Vector3::ZERO);
 
-	_drawGridPlane();
+	//_drawGridPlane();
 	_setLights();
 	mSceneMgr->setSkyBox(true, "Sky/PlaySkyBox", 5000);
 	_drawGroundPlane();
@@ -46,18 +46,19 @@ void PlayState::enter(void)
 	mAnimationState->setEnabled(true);
 
 	mCharacterYaw->yaw(Degree(180.f));
-	mCharacterDirection = Vector3(0,0,-1);
+	mCharacterDirection = Vector3(0, 0, 0);
+	mObjectDirection = Vector3(0, 0, 1);
 	char c = 'A';
-	string s = "Rock";
-	for (int i = 0; i < 1; ++i)
+	string s = "Life";
+	for (int i = 0; i < LIFE_NUM; ++i)
 	{
 		Vector3 v(rand() % 951 - 450, rand() % 501, -1000.f);
-		mRockRoot[i] = mSceneMgr->getRootSceneNode()->createChildSceneNode(s + c, v);
-		mRockEntity = mSceneMgr->createEntity(s+c, "outline.mesh");
-		mRockEntity->setCastShadows(false);
+		mLifeRoot[i] = mSceneMgr->getRootSceneNode()->createChildSceneNode(s + c, v);
+		mLifeEntity = mSceneMgr->createEntity(s + c, "outline.mesh");
+		mLifeEntity->setCastShadows(false);
 
-		mRockRoot[i]->attachObject(mRockEntity);
-		mRockRoot[i]->setScale(Vector3(100, 100, 100));
+		mLifeRoot[i]->attachObject(mLifeEntity);
+		mLifeRoot[i]->setScale(Vector3(100, 100, 100));
 
 		lifebox[i].left = v.x - 30;
 		lifebox[i].right = v.x + 30;
@@ -67,7 +68,7 @@ void PlayState::enter(void)
 		lifebox[i].back = v.z - 10;
 		c++;
 	}
-	
+
 }
 
 void PlayState::exit(void)
@@ -75,7 +76,7 @@ void PlayState::exit(void)
 	// Fill Here -----------------------------
 	mSceneMgr->clearScene();
 	//mInformationOverlay->hide();
-	
+
 	// ---------------------------------------
 }
 
@@ -92,19 +93,31 @@ void PlayState::resume(void)
 
 bool PlayState::frameStarted(GameManager* game, const FrameEvent& evt)
 {
-	static int i = 0;
-	if (mCharacterDirection!=Vector3::ZERO)
-		mCharacterRoot->translate(mCharacterDirection.normalisedCopy() * 111 * evt.timeSinceLastFrame, Node::TransformSpace::TS_LOCAL);
-	if (colidelife())
-		cout << i++<< " collision" << endl;
-	
+
+	if (mCharacterDirection != Vector3::ZERO)
+		mCharacterRoot->translate(mCharacterDirection.normalisedCopy() * mCharacterSpeed * evt.timeSinceLastFrame, Node::TransformSpace::TS_LOCAL);
+
+	if (mObjectDirection != Vector3::ZERO)
+	{
+		for (int i = 0; i < LIFE_NUM; ++i)
+		{
+			mLifeRoot[i]->translate(mObjectDirection.normalisedCopy() * mObjectSpeed * evt.timeSinceLastFrame, Node::TransformSpace::TS_LOCAL);
+		}
+		for (int i = 0; i < 2; ++i)
+		{
+			mGroundRoot[i]->translate(mObjectDirection.normalisedCopy() *mObjectSpeed* evt.timeSinceLastFrame, Node::TransformSpace::TS_LOCAL);
+			if (mGroundRoot[i]->getPosition().z >= 10000)
+				mGroundRoot[i]->setPosition(Vector3(0, 0, -9999));
+		}
+	}
+
 	switch (state)
 	{
 	case RIGHT:
-		mCharacterDirection.x = 10;
+		mCharacterDirection.x = 1;
 		break;
 	case LEFT:
-		mCharacterDirection.x = -10;
+		mCharacterDirection.x = -1;
 		break;
 	case IDLE:
 		mCharacterDirection.x = 0;
@@ -114,26 +127,45 @@ bool PlayState::frameStarted(GameManager* game, const FrameEvent& evt)
 	switch (state2)
 	{
 	case UP:
-		mCharacterDirection.y = 10;
+		mCharacterDirection.y = 1;
 		break;
 	case DOWN:
-		mCharacterDirection.y = -10;
+		mCharacterDirection.y = -1;
 		break;
 	case IDLE2:
 		mCharacterDirection.y = 0;
 		break;
 	}
 	mAnimationState->addTime(evt.timeSinceLastFrame);
+	
+
+	setbox();
+	for (int i = 0; i < LIFE_NUM; ++i)
+	{
+		if (colidelife(lifebox[i]))
+			cout << " collision" << endl;
+	}
+	return true;
+}
+void PlayState::setbox()
+{
+	for (int i = 0; i < LIFE_NUM; ++i)
+	{
+		lifebox[i].left = mLifeRoot[i]->getPosition().x - 30;
+		lifebox[i].right = mLifeRoot[i]->getPosition().x + 30;
+		lifebox[i].top = mLifeRoot[i]->getPosition().y + 40;
+		lifebox[i].bottom = mLifeRoot[i]->getPosition().y;
+		lifebox[i].front = mLifeRoot[i]->getPosition().z + 10;
+		lifebox[i].back = mLifeRoot[i]->getPosition().z - 10;
+	}
+
 	playerbox.right = mCharacterRoot->getPosition().x + 30;
 	playerbox.left = mCharacterRoot->getPosition().x - 30;
 	playerbox.top = mCharacterRoot->getPosition().y + 150;
 	playerbox.bottom = mCharacterRoot->getPosition().y;
 	playerbox.front = mCharacterRoot->getPosition().z + 10;
 	playerbox.back = mCharacterRoot->getPosition().z - 10;
-
-	return true;
 }
-
 bool PlayState::frameEnded(GameManager* game, const FrameEvent& evt)
 {
 	/*static Ogre::DisplayString currFps = L"ÇöÀç FPS: ";
@@ -162,7 +194,7 @@ bool PlayState::keyReleased(GameManager* game, const OIS::KeyEvent &e)
 	switch (e.key)
 	{
 	case OIS::KC_A:
-		if (state==LEFT)
+		if (state == LEFT)
 			state = IDLE;
 		break;
 	case OIS::KC_D:
@@ -178,7 +210,7 @@ bool PlayState::keyReleased(GameManager* game, const OIS::KeyEvent &e)
 			state2 = IDLE2;
 		break;
 	case OIS::KC_O:
-		mCharacterDirection.z -= 10;
+		mObjectDirection.z = 1;
 		break;
 	}
 	return true;
@@ -205,7 +237,7 @@ bool PlayState::keyPressed(GameManager* game, const OIS::KeyEvent &e)
 		state2 = DOWN;
 		break;
 	case OIS::KC_O:
-		mCharacterDirection.z+= 10;
+		mObjectDirection.z = -1;
 		break;
 	}
 	// -----------------------------------------------------
@@ -253,17 +285,40 @@ void PlayState::_drawGroundPlane(void)
 		"Ground",
 		ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME,
 		plane,
-		1000, 5000,
+		1000, 10000,
+		1, 1,
+		true, 1, 2, 2,
+		Vector3::NEGATIVE_UNIT_Z
+		);
+
+	Plane plane2(Vector3::UNIT_Y, 0);
+	MeshManager::getSingleton().createPlane(
+		"Ground2",
+		ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME,
+		plane2,
+		1000, 10000,
 		1, 1,
 		true, 1, 5, 5,
 		Vector3::NEGATIVE_UNIT_Z
 		);
+	mGroundRoot[0] = mSceneMgr->getRootSceneNode()->createChildSceneNode("Ground", Vector3(0,0,0));
+
 
 	Entity* groundEntity = mSceneMgr->createEntity("GroundPlane", "Ground");
-	mSceneMgr->getRootSceneNode()->createChildSceneNode()->attachObject(groundEntity);
-
 	groundEntity->setMaterialName("KPU_LOGO2");
 	groundEntity->setCastShadows(false);
+
+	mGroundRoot[0]->attachObject(groundEntity);
+
+	mGroundRoot[1] = mSceneMgr->getRootSceneNode()->createChildSceneNode("Ground2", Vector3(0, 0, -10000));
+
+
+	Entity* groundEntity2 = mSceneMgr->createEntity("GroundPlane2", "Ground2");
+	groundEntity2->setMaterialName("KPU_LOGO2");
+	groundEntity2->setCastShadows(false);
+
+	mGroundRoot[1]->attachObject(groundEntity2);
+
 }
 
 void PlayState::_drawGridPlane(void)
@@ -284,7 +339,7 @@ void PlayState::_drawGridPlane(void)
 	gridPlaneMaterial->getTechnique(0)->getPass(0)->setSelfIllumination(1, 1, 1);
 
 	gridPlane->begin("GridPlaneMaterial", Ogre::RenderOperation::OT_LINE_LIST);
-	for (int i = 0; i<21; i++)
+	for (int i = 0; i < 21; i++)
 	{
 		gridPlane->position(-500.0f, 0.0f, 500.0f - i * 50);
 		gridPlane->position(500.0f, 0.0f, 500.0f - i * 50);
@@ -298,22 +353,21 @@ void PlayState::_drawGridPlane(void)
 	gridPlaneNode->attachObject(gridPlane);
 }
 
-bool PlayState::colidelife()
+bool PlayState::colidelife(const AABB& box)
 {
-	for (int i = 0; i < 1; ++i)
-	{
-		if (lifebox[i].left > playerbox.right)
+	
+	if (box.left > playerbox.right)
 			return false;
-		if (lifebox[i].right < playerbox.left)
+	if (box.right < playerbox.left)
 			return false;
-		if (lifebox[i].top < playerbox.bottom)
+	if (box.top < playerbox.bottom)
 			return false;
-		if (lifebox[i].bottom > playerbox.top)
+	if (box.bottom > playerbox.top)
 			return false;
-		if (lifebox[i].front < playerbox.back)
+	if (box.front < playerbox.back)
 			return false;
-		if (lifebox[i].back > playerbox.front)
+	if (box.back > playerbox.front)
 			return false;
 		return true;
-	}
+	
 }
