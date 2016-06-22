@@ -15,9 +15,8 @@ public:
 	void pause(void);
 	void resume(void);
 
-	bool colidelife(const AABB&);
+	bool collidelife(const AABB&);
 	void collidelifewall();
-
 	bool frameStarted(GameManager* game, const Ogre::FrameEvent& evt);
 	bool frameEnded(GameManager* game, const Ogre::FrameEvent& evt);
 
@@ -40,7 +39,8 @@ private:
 
 	static PlayState mPlayState;
 	Ogre::Vector3 mCharacterSpeed;
-	
+	int mScore;
+	int mLife;
 	Ogre::Root *mRoot;
 	Ogre::RenderWindow* mWindow;
 	Ogre::SceneManager* mSceneMgr;

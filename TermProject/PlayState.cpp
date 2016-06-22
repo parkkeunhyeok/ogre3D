@@ -1,7 +1,10 @@
 #include "PlayState.h"
 #include "TitleState.h"
+#pragma comment(lib, "winmm.lib")
+#include <Windows.h>
 #include <iostream>
 #include <string>
+#include <mmsystem.h>
 using namespace Ogre;
 using namespace std;
 PlayState PlayState::mPlayState;
@@ -10,10 +13,12 @@ PlayState PlayState::mPlayState;
 
 void PlayState::enter(void)
 {
-	mCharacterSpeed = { 300, 300, 200 };
+	PlaySound("sound/2014.wav", NULL, SND_ASYNC);
+	mCharacterSpeed = { 700, 700, 200 };
 	mGroundDirection = { 0, 0, 1 };
-	mObjectSpeed = { 400, 400, 800 };
-	
+	mObjectSpeed = { 600, 600, 1000 };
+	mLife = 100;
+	mScore = 0;
 	srand(time(0));
 	mRoot = Root::getSingletonPtr();
 	mRoot->getAutoCreatedWindow()->resetStatistics();
@@ -26,8 +31,8 @@ void PlayState::enter(void)
 	mSceneMgr->setSkyBox(true, "Sky/PlaySkyBox", 5000);
 	_drawGroundPlane();
 
-	/*mInformationOverlay = OverlayManager::getSingleton().getByName("Overlay/Information");
-	mInformationOverlay->show();*/
+	mInformationOverlay = OverlayManager::getSingleton().getByName("Overlay/Information");
+	mInformationOverlay->show();
 
 	mCharacterRoot = mSceneMgr->getRootSceneNode()->createChildSceneNode("ProfessorRoot");
 	mCharacterYaw = mCharacterRoot->createChildSceneNode("ProfessorYaw");
@@ -54,9 +59,9 @@ void PlayState::enter(void)
 	string s = "Life";
 	for (int i = 0; i < LIFE_NUM; ++i)
 	{
-		int a = rand() % 21-10;
-		int b = rand() % 21-10;
-		mObjectDirection[i] = Vector3(a*0.1 , b*0.1, 1);
+		int a = rand() % 21 - 10;
+		int b = rand() % 21 - 10;
+		mObjectDirection[i] = Vector3(a*0.1, b*0.1, 1);
 		Vector3 v(rand() % 900 - 450, 100, -1000.f);
 		mLifeRoot[i] = mSceneMgr->getRootSceneNode()->createChildSceneNode(s + c, v);
 		mLifeEntity = mSceneMgr->createEntity(s + c, "outline.mesh");
@@ -72,7 +77,6 @@ void PlayState::enter(void)
 		lifebox[i].front = v.z + 10;
 		lifebox[i].back = v.z - 10;
 		c++;
-		cout << mLifeRoot[i]->getPosition().y << endl;
 	}
 
 }
@@ -109,7 +113,7 @@ void PlayState::exit(void)
 {
 	// Fill Here -----------------------------
 	mSceneMgr->clearScene();
-	//mInformationOverlay->hide();
+	mInformationOverlay->hide();
 
 	// ---------------------------------------
 }
@@ -127,24 +131,42 @@ void PlayState::resume(void)
 
 bool PlayState::frameStarted(GameManager* game, const FrameEvent& evt)
 {
-
+	mScore += mObjectSpeed.z*0.01;
 	collidelifewall();
 	if (mCharacterDirection != Vector3::ZERO)
+	{	
+		
 		mCharacterRoot->translate(mCharacterDirection.normalisedCopy() * mCharacterSpeed * evt.timeSinceLastFrame, Node::TransformSpace::TS_LOCAL);
-
-	
-		for (int i = 0; i < LIFE_NUM; ++i)
+	}
+	if (mCharacterRoot->getPosition().x > 600)
+		mCharacterRoot->setPosition(600, mCharacterRoot->getPosition().y, mCharacterRoot->getPosition().z);
+	if (mCharacterRoot->getPosition().x < -600)
+		mCharacterRoot->setPosition(-600, mCharacterRoot->getPosition().y, mCharacterRoot->getPosition().z);
+	if (mCharacterRoot->getPosition().y > 500)
+		mCharacterRoot->setPosition(mCharacterRoot->getPosition().x, 500, mCharacterRoot->getPosition().z);
+	if (mCharacterRoot->getPosition().y < -50)
+		mCharacterRoot->setPosition(mCharacterRoot->getPosition().x, -50, mCharacterRoot->getPosition().z);
+	for (int i = 0; i < LIFE_NUM; ++i)
+	{
+		if (mObjectDirection[i] != Vector3::ZERO)
+			mLifeRoot[i]->translate(mObjectDirection[i].normalisedCopy() * mObjectSpeed * evt.timeSinceLastFrame, Node::TransformSpace::TS_LOCAL);
+		if (mLifeRoot[i]->getPosition().z >= 200)
+			mLifeRoot[i]->translate(0, 0, -9999);
+		if (collidelife(lifebox[i]))
 		{
-			if (mObjectDirection[i] != Vector3::ZERO)
-				mLifeRoot[i]->translate(mObjectDirection[i].normalisedCopy() * mObjectSpeed * evt.timeSinceLastFrame, Node::TransformSpace::TS_LOCAL);
+			mLifeRoot[i]->translate(0, 0, -3200);
+			mLife++;
+			if (mLife > 100)
+				mLife = 100;
 		}
-		for (int i = 0; i < 2; ++i)
-		{
-			if (mGroundDirection != Vector3::ZERO)
+	}
+	for (int i = 0; i < 2; ++i)
+	{
+		if (mGroundDirection != Vector3::ZERO)
 			mGroundRoot[i]->translate(mGroundDirection.normalisedCopy() *mObjectSpeed* evt.timeSinceLastFrame, Node::TransformSpace::TS_LOCAL);
-			if (mGroundRoot[i]->getPosition().z >= 10000)
-				mGroundRoot[i]->setPosition(Vector3(0, 0, -9999));
-		}
+		if (mGroundRoot[i]->getPosition().z >= 10000)
+			mGroundRoot[i]->setPosition(Vector3(0, 0, -9500));
+	}
 	
 
 	switch (state)
@@ -176,10 +198,20 @@ bool PlayState::frameStarted(GameManager* game, const FrameEvent& evt)
 	
 
 	setbox();
-	for (int i = 0; i < LIFE_NUM; ++i)
+	static float t;
+	t += evt.timeSinceLastFrame;
+	if (t > 1)
 	{
-		if (colidelife(lifebox[i]))
-			cout << " collision" << endl;
+
+		mLife -= 1 * mObjectSpeed.z*0.001;
+		if (mLife <= 0)
+		{
+			mLife = 0;
+			game->changeState(TitleState::getInstance());
+
+		}
+		mObjectSpeed.z += 100;
+		t = 0;
 	}
 	return true;
 }
@@ -204,22 +236,19 @@ void PlayState::setbox()
 }
 bool PlayState::frameEnded(GameManager* game, const FrameEvent& evt)
 {
-	/*static Ogre::DisplayString currFps = L"현재 FPS: ";
-	static Ogre::DisplayString avgFps = L"평균 FPS: ";
-	static Ogre::DisplayString bestFps = L"최고 FPS: ";
-	static Ogre::DisplayString worstFps = L"최저 FPS: ";
 
-	OverlayElement* guiAvg = OverlayManager::getSingleton().getOverlayElement("AverageFps");
-	OverlayElement* guiCurr = OverlayManager::getSingleton().getOverlayElement("CurrFps");
-	OverlayElement* guiBest = OverlayManager::getSingleton().getOverlayElement("BestFps");
-	OverlayElement* guiWorst = OverlayManager::getSingleton().getOverlayElement("WorstFps");
+	static Ogre::DisplayString score = L"SCORE : ";
+	OverlayElement* Score = OverlayManager::getSingleton().getOverlayElement("Score");
 
-	const RenderTarget::FrameStats& stats = mRoot->getAutoCreatedWindow()->getStatistics();
+	
 
-	guiAvg->setCaption(avgFps + StringConverter::toString(stats.avgFPS));
-	guiCurr->setCaption(currFps + StringConverter::toString(stats.lastFPS));
-	guiBest->setCaption(bestFps + StringConverter::toString(stats.bestFPS));
-	guiWorst->setCaption(worstFps + StringConverter::toString(stats.worstFPS));*/
+	Score->setCaption(score + StringConverter::toString(mScore));
+
+	static Ogre::DisplayString life = L"LIFE : ";
+	OverlayElement* Life = OverlayManager::getSingleton().getOverlayElement("Life");
+
+
+	Life->setCaption(life + StringConverter::toString(mLife));
 
 	return true;
 }
@@ -357,7 +386,7 @@ void PlayState::_drawGroundPlane(void)
 
 }
 
-bool PlayState::colidelife(const AABB& box)
+bool PlayState::collidelife(const AABB& box)
 {
 	
 	if (box.left > playerbox.right)
